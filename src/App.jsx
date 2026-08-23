@@ -156,6 +156,15 @@ function reducer(state, action) {
         loading: false,
         error: "",
       };
+    case "SELECT_ANSWER":
+      // Fires the instant the person clicks — shows a "verifying" state
+      // immediately, before the server confirms correct/incorrect.
+      return {
+        ...state,
+        selectedAnswer: action.index,
+        loading: true,
+        error: "",
+      };
     case "ANSWER_SUCCESS": {
       const rank = action.correct ? RANKS[action.score - 1] : null;
       return {
@@ -372,7 +381,9 @@ export default function App() {
         return;
       }
 
-      dispatch({ type: "SET_LOADING", value: true });
+      // Show the pick instantly — don't wait on the network for the
+      // button to visually respond to the click.
+      dispatch({ type: "SELECT_ANSWER", index });
       abortRef.current = new AbortController();
 
       try {
@@ -714,12 +725,18 @@ export default function App() {
             <div className="mt-8 space-y-4">
               {question.options.map((option, index) => {
                 const isSelected = index === state.selectedAnswer;
+                const isVerifying = isSelected && state.loading && !state.answerSubmitted;
+
                 let optionStyle = "bg-slate-800/70 border-slate-700 hover:border-amber-400 hover:bg-slate-800";
 
-                if (state.answerSubmitted) {
+                if (isVerifying) {
+                  optionStyle = "bg-amber-400/10 border-amber-400 text-amber-200";
+                } else if (state.answerSubmitted) {
                   if (isSelected && state.answerCorrect) optionStyle = "bg-emerald-500/10 border-emerald-400 text-emerald-300";
                   else if (isSelected && !state.answerCorrect) optionStyle = "bg-red-500/10 border-red-400 text-red-300";
                   else optionStyle = "bg-slate-800/40 border-slate-700 opacity-50";
+                } else if (state.loading) {
+                  optionStyle = "bg-slate-800/40 border-slate-700 opacity-40";
                 }
 
                 return (
@@ -731,9 +748,12 @@ export default function App() {
                   >
                     <div className="flex items-center gap-4">
                       <span className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-700 text-amber-400 font-black shrink-0 font-mono">
-                        {String.fromCharCode(65 + index)}
+                        {isVerifying ? <Loader2 className="w-4 h-4 animate-spin" /> : String.fromCharCode(65 + index)}
                       </span>
                       <span>{option}</span>
+                      {isVerifying && (
+                        <span className="ml-auto text-xs font-mono tracking-widest text-amber-300">SCANNING…</span>
+                      )}
                     </div>
                   </button>
                 );
